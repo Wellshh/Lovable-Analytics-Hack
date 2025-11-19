@@ -229,6 +229,40 @@ Project Structure
     ├── data.py         # User data generation and loading
     └── discovery.py    # Form field discovery
 
+Documentation
+-------------
+
+API documentation can be generated from docstrings using Sphinx.
+
+Prerequisites
+~~~~~~~~~~~~~
+
+Install documentation dependencies:
+
+.. code-block:: bash
+
+    poetry install --with dev
+
+Building Documentation
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Generate HTML documentation:
+
+.. code-block:: bash
+
+    cd docs
+    make html
+
+Or using sphinx-build directly:
+
+.. code-block:: bash
+
+    poetry run sphinx-build -b html docs docs/_build/html
+
+The generated documentation will be in ``docs/_build/html/``. Open ``index.html`` in your browser to view it.
+
+The documentation is automatically generated from docstrings in the source code. Make sure your docstrings follow Google or NumPy style format for best results.
+
 License
 -------
 
