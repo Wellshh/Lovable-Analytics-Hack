@@ -1,24 +1,17 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file for local development
 load_dotenv()
 
 
 class Config:
-    # Target URL
     TARGET_URL = os.getenv("TARGET_URL", "https://genma.lovable.app/")
-
-    # Conversion rate for form submissions (0 - 1)
-    # FORCE 1.0 for debugging to ensure we see POST requests
     CONVERSION_RATE = float(os.getenv("CONVERSION_RATE", "1.0"))
-
-    # Proxy Configuration (Bright Data)
-    PROXY_HOST = os.getenv("PROXY_HOST", "brd.superproxy.io:33335")
+    PROXY_HOST = os.getenv("PROXY_HOST", "gw.dataimpulse.com:823")
     PROXY_USER = os.getenv("PROXY_USER")
     PROXY_PASS = os.getenv("PROXY_PASS")
+    PROXY_COUNTRIES = os.getenv("PROXY_COUNTRIES", "")
 
-    # Validation
     @classmethod
     def validate(cls):
         missing = []
@@ -39,8 +32,17 @@ class Config:
     def get_proxy_config(cls):
         if not cls.PROXY_USER or not cls.PROXY_PASS:
             return None
-        return {
-            "server": f"http://{cls.PROXY_HOST}",
-            "username": cls.PROXY_USER,
-            "password": cls.PROXY_PASS,
-        }
+        if cls.PROXY_COUNTRIES:
+            countries_str = cls.PROXY_COUNTRIES.replace(" ", "")  # Remove spaces
+            username_with_countries = f"{cls.PROXY_USER}__cr.{countries_str}"
+            return {
+                "server": f"http://{cls.PROXY_HOST}",
+                "username": username_with_countries,
+                "password": cls.PROXY_PASS,
+            }
+        else:
+            return {
+                "server": f"http://{cls.PROXY_HOST}",
+                "username": cls.PROXY_USER,
+                "password": cls.PROXY_PASS,
+            }

@@ -2,9 +2,8 @@ name: Traffic Simulation Bot
 
 on:
   schedule:
-    # Run every 2 hours at minute 15
-    - cron: '15 */2 * * *'
-  workflow_dispatch: # Allow manual trigger
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   simulate_traffic:
@@ -36,6 +35,7 @@ jobs:
         PROXY_USER: ${{ secrets.PROXY_USER }}
         PROXY_PASS: ${{ secrets.PROXY_PASS }}
         TARGET_URL: ${{ secrets.TARGET_URL }}
+        PROXY_COUNTRIES: ${{secrets.PROXY_COUNTRIES}}
       run: |
         python main.py
         

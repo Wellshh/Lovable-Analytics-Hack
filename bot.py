@@ -222,7 +222,7 @@ class TrafficBot:
                     print(f"Detected Location: {country} ({country_code})")
                     print(f"Timezone: {timezone}")
 
-                    # Map country to locale
+                    # Map country to locale (complete list including all DataImpulse countries)
                     locale_map = {
                         "US": "en-US",
                         "GB": "en-GB",
@@ -230,14 +230,16 @@ class TrafficBot:
                         "AU": "en-AU",
                         "SG": "en-SG",
                         "MY": "en-MY",
+                        "TH": "th-TH",  # Thailand
+                        "MM": "my-MM",  # Myanmar (Burmese)
+                        "CN": "zh-CN",  # China
+                        "DE": "de-DE",  # Germany
+                        "JP": "ja-JP",  # Japan
                         "IN": "en-IN",
-                        "DE": "de-DE",
                         "FR": "fr-FR",
                         "ES": "es-ES",
                         "IT": "it-IT",
-                        "JP": "ja-JP",
                         "KR": "ko-KR",
-                        "CN": "zh-CN",
                         "TW": "zh-TW",
                         "BR": "pt-BR",
                         "MX": "es-MX",
@@ -314,13 +316,21 @@ class TrafficBot:
         use_proxy = True
 
         if proxy_config and use_proxy:
+            # Mask password for logging
             masked = (
                 proxy_config["password"][:2] + "****"
                 if proxy_config.get("password")
                 else "None"
             )
+            username_display = proxy_config.get("username", "None")
+            # Mask countries in username if it's DataImpulse format (contains __cr.)
+            if "__cr." in username_display:
+                # Show: user__cr.**** instead of full countries list
+                parts = username_display.split("__cr.")
+                if len(parts) == 2:
+                    username_display = f"{parts[0]}__cr.****"
             print(
-                f"Proxy Config: Server={proxy_config['server']}, User={proxy_config['username']}, Pass={masked}"
+                f"Proxy Config: Server={proxy_config['server']}, User={username_display}, Pass={masked}"
             )
         else:
             print("WARNING: Running without proxy (Local IP mode)")
@@ -360,13 +370,13 @@ class TrafficBot:
             if use_proxy and proxy_config:
                 print("Detecting proxy IP location...")
                 temp_browser = await p.chromium.launch(headless=True, args=args)
-                temp_context = await temp_browser.new_context(
-                    proxy={
-                        "server": proxy_config["server"],
-                        "username": proxy_config["username"],
-                        "password": proxy_config["password"],
-                    }
-                )
+                temp_proxy_config = {"server": proxy_config["server"]}
+                if proxy_config.get("username"):
+                    temp_proxy_config["username"] = proxy_config["username"]
+                if proxy_config.get("password"):
+                    temp_proxy_config["password"] = proxy_config["password"]
+
+                temp_context = await temp_browser.new_context(proxy=temp_proxy_config)
                 temp_page = await temp_context.new_page()
                 try:
                     geo_info = await self.check_proxy_ip(temp_page)
@@ -388,12 +398,16 @@ class TrafficBot:
             }
 
             if use_proxy and proxy_config:
-                launch_kwargs["proxy"] = {
+                proxy_kwargs = {
                     "server": proxy_config["server"],
-                    "username": proxy_config["username"],
-                    "password": proxy_config["password"],
                     "bypass": "*.supabase.co,supabase.co",
                 }
+                if proxy_config.get("username"):
+                    proxy_kwargs["username"] = proxy_config["username"]
+                if proxy_config.get("password"):
+                    proxy_kwargs["password"] = proxy_config["password"]
+
+                launch_kwargs["proxy"] = proxy_kwargs
 
             # Create a temporary directory for the user profile
             user_data_dir = tempfile.mkdtemp(prefix="chrome_profile_")
