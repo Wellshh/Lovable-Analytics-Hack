@@ -1,6 +1,8 @@
 import asyncio
 import random
 import os
+import shutil
+import tempfile
 from playwright.async_api import (
     async_playwright,
     Page,
@@ -9,7 +11,8 @@ from playwright.async_api import (
     TimeoutError as PlaywrightTimeoutError,
     WebSocket,
 )
-from playwright_stealth import stealth_async
+
+# from playwright_stealth import stealth_async # Disabled for clean test
 from config import Config
 from fake_useragent import UserAgent
 
@@ -206,50 +209,6 @@ class TrafficBot:
         except Exception as e:
             print(f"Failed to verify IP: {e}")
 
-    async def inject_stealth_scripts(self, page: Page):
-        """Inject advanced stealth scripts to override WebGL and Hardware concurrency"""
-        await page.add_init_script(
-            """
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-            
-            // Overwrite WebGL Vendor/Renderer
-            const getParameter = WebGLRenderingContext.prototype.getParameter;
-            WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                // UNMASKED_VENDOR_WEBGL
-                if (parameter === 37445) {
-                    return 'Intel Inc.';
-                }
-                // UNMASKED_RENDERER_WEBGL
-                if (parameter === 37446) {
-                    return 'Intel(R) Iris(R) Xe Graphics';
-                }
-                return getParameter(parameter);
-            };
-
-            // Overwrite Hardware Concurrency
-            Object.defineProperty(navigator, 'hardwareConcurrency', {
-                get: () => 4,
-            });
-            
-            // Mock chrome object
-            if (!window.chrome) {
-                window.chrome = {
-                    runtime: {}
-                };
-            }
-            
-            // Mock Permissions
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                Promise.resolve({ state: Notification.permission }) :
-                originalQuery(parameters)
-            );
-        """
-        )
-
     def setup_network_logging(self, page: Page):
         """Log interesting network requests to debug analytics blocking"""
 
@@ -314,9 +273,10 @@ class TrafficBot:
             print("WARNING: Running without proxy (Local IP mode)")
 
         referer = random.choice(self.referers)
-        # Use a fixed realistic User-Agent for testing consistency or random one
-        # To fix Client Hints mismatch, best to pick one recent Chrome UA
-        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+        # Use user's ACTUAL UA (or a very standard one) to avoid mismatch
+        # This UA is from a standard Mac Chrome, safer for local testing
+        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
         print(f"Configuration: Referer={referer}, UA={user_agent}")
 
@@ -329,130 +289,130 @@ class TrafficBot:
                 "--ignore-ssl-errors",
                 "--disable-web-security",  # DISABLE CORS
                 "--disable-features=IsolateOrigins,site-per-process",  # DISABLE ISOLATION
-                f"--user-agent={user_agent}",  # Enforce UA at launch
+                # f"--user-agent={user_agent}",  # Don't enforce UA at launch in persistent mode, let it default or use context
             ]
 
-            # Determine headless mode based on environment
-            # Local debugging often benefits from headless=False to bypass some checks
             is_ci = os.getenv("CI") == "true"
-            headless_mode = is_ci  # False locally, True in CI
+            headless_mode = is_ci
 
-            launch_kwargs = {"headless": headless_mode, "args": args}
+            launch_kwargs = {
+                "headless": headless_mode,
+                "args": args,
+                "user_agent": user_agent,
+                "viewport": {"width": 1440, "height": 900},  # Standard Mac resolution
+            }
 
             if use_proxy and proxy_config:
                 launch_kwargs["proxy"] = {
                     "server": proxy_config["server"],
                     "username": proxy_config["username"],
                     "password": proxy_config["password"],
-                    "bypass": "*.supabase.co,supabase.co",  # BYPASS SUPABASE
+                    "bypass": "*.supabase.co,supabase.co",
                 }
 
-            browser = await p.chromium.launch(**launch_kwargs)
-
-            chosen_viewport = random.choice(
-                [
-                    {"width": 1920, "height": 1080},
-                    {"width": 1366, "height": 768},
-                    {"width": 1536, "height": 864},
-                ]
-            )
-
-            context_headers = {}
-            if referer:
-                context_headers["Referer"] = referer
-            # Explicitly signal Do Not Track preference as 0 (Track me / No preference)
-            # because DNT=1 is a strong signal for analytics to shut up.
-            context_headers["DNT"] = "0"
-
-            context = await browser.new_context(
-                viewport=chosen_viewport,
-                locale="en-US",
-                timezone_id="America/New_York",
-                extra_http_headers=context_headers,
-                ignore_https_errors=True,
-                user_agent=user_agent,  # Consistency is key
-            )
-
-            page = await context.new_page()
-
-            # 1. Apply Standard Stealth
-            await stealth_async(page)
-
-            # 2. Inject Custom Hardware Spoofing
-            await self.inject_stealth_scripts(page)
-
-            # 3. Setup Diagnostic Logging
-            self.setup_network_logging(page)
+            # Create a temporary directory for the user profile
+            user_data_dir = tempfile.mkdtemp(prefix="chrome_profile_")
+            print(f"Created temporary profile at: {user_data_dir}")
 
             try:
-                if use_proxy:
-                    await self.check_proxy_ip(page)
-
-                print(f"Navigating to {Config.TARGET_URL}")
-                await page.goto(
-                    Config.TARGET_URL,
-                    timeout=120000,
-                    wait_until="domcontentloaded",
+                # Use persistent_context to simulate real user profile
+                context = await p.chromium.launch_persistent_context(
+                    user_data_dir, **launch_kwargs
                 )
 
-                print("Waiting for network idle...")
+                page = context.pages[0] if context.pages else await context.new_page()
+
+                # Set extra headers manually since persistent context constructor doesn't take extra_http_headers easily in all versions
+                await page.set_extra_http_headers({"Referer": referer, "DNT": "0"})
+
+                # 1. Disable Stealth for a clean run (sometimes stealth injection IS the fingerprint)
+                # await stealth_async(page)
+
+                # 2. Disable Custom Hardware Spoofing
+                # await self.inject_stealth_scripts(page)
+
+                # 3. Setup Diagnostic Logging
+                self.setup_network_logging(page)
+
                 try:
-                    await page.wait_for_load_state("networkidle", timeout=60000)
-                except PlaywrightTimeoutError:
-                    print("Network idle wait timed out.")
+                    if use_proxy:
+                        await self.check_proxy_ip(page)
 
-                # Wait for analytics initialization
-                await asyncio.sleep(random.uniform(5, 8))
+                    print(f"Navigating to {Config.TARGET_URL}")
+                    await page.goto(
+                        Config.TARGET_URL,
+                        timeout=120000,
+                        wait_until="domcontentloaded",
+                    )
 
-                # Manually accept cookies if selector known (optional)
-                # await self.accept_cookies(page)
+                    print("Waiting for network idle...")
+                    try:
+                        await page.wait_for_load_state("networkidle", timeout=60000)
+                    except PlaywrightTimeoutError:
+                        print("Network idle wait timed out.")
 
-                print("Page loaded.")
+                    # Wait for analytics initialization
+                    await asyncio.sleep(random.uniform(5, 8))
 
-                # Interaction
-                await self.random_sleep(2, 5)
-                await self.random_mouse_move(page)
-                await self.random_scroll(page)
+                    # Manually accept cookies if selector known (optional)
+                    # await self.accept_cookies(page)
 
-                # Form Logic
-                print("Looking for form...")
-                should_convert = random.random() <= Config.CONVERSION_RATE
-                if should_convert:
-                    identity = self.generate_identity()
-                    print(f"Submitting as {identity['full_name']}...")
+                    print("Page loaded.")
 
-                    form_completed = await self.fill_visibility_form(page, identity)
-                    if form_completed:
-                        submit_btn = await page.query_selector(
-                            "button[type='submit'], button:has-text('Get My Genma Analysis'), button:has-text('Get report')"
-                        )
-                        if submit_btn:
-                            await self.random_mouse_move(page)
-                            await submit_btn.hover()
-                            await asyncio.sleep(1.0)  # Deliberate pause before click
-                            await submit_btn.click()
-                            print("Form submitted.")
+                    # Interaction
+                    await self.random_sleep(2, 5)
+                    await self.random_mouse_move(page)
+                    await self.random_scroll(page)
 
-                            # Capture screenshot
-                            await asyncio.sleep(15)  # Long wait for processing
-                            await page.screenshot(path="success_screenshot.png")
-                            print("Screenshot saved.")
+                    # Form Logic
+                    print("Looking for form...")
+                    should_convert = random.random() <= Config.CONVERSION_RATE
+                    if should_convert:
+                        identity = self.generate_identity()
+                        print(f"Submitting as {identity['full_name']}...")
+
+                        form_completed = await self.fill_visibility_form(page, identity)
+                        if form_completed:
+                            submit_btn = await page.query_selector(
+                                "button[type='submit'], button:has-text('Get My Genma Analysis'), button:has-text('Get report')"
+                            )
+                            if submit_btn:
+                                await self.random_mouse_move(page)
+                                await submit_btn.hover()
+                                await asyncio.sleep(
+                                    1.0
+                                )  # Deliberate pause before click
+                                await submit_btn.click()
+                                print("Form submitted.")
+
+                                # Capture screenshot
+                                await asyncio.sleep(15)  # Long wait for processing
+                                await page.screenshot(path="success_screenshot.png")
+                                print("Screenshot saved.")
+                            else:
+                                print("Submit button not found.")
                         else:
-                            print("Submit button not found.")
+                            print("Form fields not found.")
                     else:
-                        print("Form fields not found.")
-                else:
-                    print("Simulating bounce.")
+                        print("Simulating bounce.")
 
-                print("Final dwell time...")
-                await self.random_sleep(8, 12)
+                    print("Final dwell time...")
+                    await self.random_sleep(8, 12)
 
-            except Exception as e:
-                print(f"Error: {e}")
-                await page.screenshot(path="error_screenshot.png")
+                except Exception as e:
+                    print(f"Error: {e}")
+                    await page.screenshot(path="error_screenshot.png")
+                finally:
+                    await context.close()
+                    # browser object is not available in persistent context mode as context IS the browser
+                    # await browser.close()
             finally:
-                await context.close()
-                await browser.close()
+                # Clean up the temporary directory
+                try:
+                    shutil.rmtree(user_data_dir)
+                    print(f"Removed temporary profile: {user_data_dir}")
+                except Exception as e:
+                    print(f"Failed to remove temporary profile: {e}")
 
 
 if __name__ == "__main__":
