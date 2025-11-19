@@ -12,4 +12,7 @@ blob-report/
 *.png
 chrome_profile/
 chrome_profile_*/
-
+.*_cache/
+# Sphinx documentation build
+docs/_build/
+docs/.doctrees/

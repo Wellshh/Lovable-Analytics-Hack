@@ -1,0 +1,18 @@
+{
+  "target_url": "https://example.com",
+  "conversion_rate": 0.3,
+  "locale": "en_US",
+  "referers": {
+    "https://www.facebook.com/": 4,
+    "https://www.google.com/": 3,
+    "https://www.reddit.com/": 2,
+    "https://www.twitter.com/": 1,
+    "https://www.linkedin.com/": 1
+  },
+  "form_fields": {
+    "full_name": "#name",
+    "email": "#email",
+    "company": "#company"
+  },
+  "submit_button": "button[type='submit']"
+}
