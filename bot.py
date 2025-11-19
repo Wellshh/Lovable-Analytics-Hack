@@ -25,13 +25,13 @@ class TrafficBot:
         )  # Force linux/desktop UA to avoid mobile inconsistencies
         self.referers = [
             "https://www.facebook.com/",  # Primary source (weighted)
-            "https://www.facebook.com/",  # Repeat for higher probability
-            "https://www.facebook.com/",  # Repeat for higher probability
+            "https://www.facebook.com/",
+            "https://www.facebook.com/",
+            "https://www.facebook.com/",
             "https://www.reddit.com/",
-            "https://twitter.com/",
-            "https://x.com/",
-            "https://www.linkedin.com/",
-            "https://www.google.com/",  # Direct search
+            # "https://twitter.com/",
+            # "https://x.com/",
+            # "https://www.linkedin.com/",
         ]
         self.email_domains = [
             "gmail.com",
