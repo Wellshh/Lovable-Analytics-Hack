@@ -19,8 +19,8 @@ class Config:
 
         self.form_fields = None
         self.submit_button = None
-        self.referers = None  # Will use default if None
-        self.locale = "en_US"  # Default locale for data generation
+        self.referers = None
+        self.locale = "en_US"
 
         if config_path:
             self.load_from_file(config_path)
@@ -39,7 +39,7 @@ class Config:
             self.conversion_rate = config_data.get("conversion_rate", self.conversion_rate)
             self.form_fields = config_data.get("form_fields")
             self.submit_button = config_data.get("submit_button")
-            self.referers = config_data.get("referers")  # Dict of URL: weight
+            self.referers = config_data.get("referers")
             self.locale = config_data.get("locale", self.locale)
 
         except FileNotFoundError as e:

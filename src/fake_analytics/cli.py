@@ -145,19 +145,14 @@ def run(url, threads, verbose, config_path, data_path):
 
     \b
     Examples:
-      # Basic usage with URL
       fake-analytics run --url https://example.com
 
-      # Run 5 concurrent instances
       fake-analytics run --url https://example.com --threads 5
 
-      # Use configuration file
       fake-analytics run --config myconfig.json
 
-      # Use CSV data (threads will match CSV rows)
       fake-analytics run --data-file users.csv --config config.json
 
-      # Combine options
       fake-analytics run --url https://example.com --threads 3 --config config.json
     """
     try:
@@ -171,15 +166,12 @@ def run(url, threads, verbose, config_path, data_path):
 
         if user_data:
             logger.info(f"Loaded {len(user_data)} user records from {data_path}")
-            # If user data is provided, the number of threads is determined by the data
             threads = len(user_data)
             logger.info(f"Running with {threads} threads based on the data file.")
 
         logger.bot_start(config.target_url, threads)
 
         with ThreadPoolExecutor(max_workers=threads) as executor:
-            # If we have user data, map each record to a bot instance.
-            # Otherwise, just run 'threads' number of instances with generated data.
             identities = user_data if user_data else [None] * threads
 
             futures = [
@@ -187,7 +179,7 @@ def run(url, threads, verbose, config_path, data_path):
             ]
 
             for future in futures:
-                future.result()  # Wait for all threads to complete
+                future.result()
 
         logger.completion()
 

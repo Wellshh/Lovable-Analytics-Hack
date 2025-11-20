@@ -16,10 +16,6 @@ from src.fake_analytics.data import (
     load_user_data,
 )
 
-# ============================================================================
-# TEST: IdentityGenerator Class
-# ============================================================================
-
 
 @pytest.mark.unit
 class TestIdentityGenerator:
@@ -160,9 +156,7 @@ class TestIdentityGenerator:
         assert "@" in identity["email"]
 
 
-# ============================================================================
 # TEST: Global Identity Generator Functions
-# ============================================================================
 
 
 @pytest.mark.unit
@@ -200,9 +194,7 @@ class TestGlobalIdentityFunctions:
         assert "@" in identity["email"]
 
 
-# ============================================================================
 # TEST: Referer Selection
-# ============================================================================
 
 
 @pytest.mark.unit
@@ -282,9 +274,7 @@ class TestRefererSelection:
             assert weight > 0
 
 
-# ============================================================================
 # TEST: CSV Data Loading
-# ============================================================================
 
 
 @pytest.mark.unit

@@ -3,6 +3,7 @@ import os
 import random
 import shutil
 import tempfile
+import threading
 
 from playwright.async_api import (
     TimeoutError as PlaywrightTimeoutError,
@@ -20,36 +21,37 @@ class TrafficBot:
     def __init__(self, config: Config, identity: dict | None = None):
         self.config = config
         self.identity = identity
-        self.logger = get_logger(config.verbose)
+        self.thread_id = threading.get_ident()
+        self.logger = get_logger(config.verbose, thread_id=self.thread_id)
 
     async def run(self):
-        self.logger.info("Starting Traffic Bot...", "bold cyan")
+        self.logger.info("Starting Traffic Bot...", "bold cyan", self.thread_id)
         proxy_config = self.config.get_proxy_config()
         use_proxy = self.config.use_proxy
 
         if proxy_config and use_proxy:
-            # Mask password for logging
             masked = (
                 proxy_config["password"][:2] + "****" if proxy_config.get("password") else "None"
             )
             username_display = proxy_config.get("username", "None")
-            # Mask countries in username if it's DataImpulse format (contains __cr.)
+
             if "__cr." in username_display:
-                # Show: user__cr.**** instead of full countries list
                 parts = username_display.split("__cr.")
                 if len(parts) == 2:
                     username_display = f"{parts[0]}__cr.****"
 
-            self.logger.proxy_config(proxy_config["server"], username_display, masked)
+            self.logger.proxy_config(
+                proxy_config["server"], username_display, masked, self.thread_id
+            )
         else:
-            self.logger.warning("Running without proxy (Local IP mode)")
-            use_proxy = False  # Force disable if no proxy config
+            self.logger.warning("Running without proxy (Local IP mode)", self.thread_id)
+            use_proxy = False
 
         referer = data.get_referer(self.config.referers)
         user_agent = data.USER_AGENT
 
-        self.logger.debug(f"Configuration: Referer={referer}")
-        self.logger.debug(f"User-Agent: {user_agent}")
+        self.logger.debug(f"Configuration: Referer={referer}", self.thread_id)
+        self.logger.debug(f"User-Agent: {user_agent}", self.thread_id)
 
         async with async_playwright() as p:
             args = [
@@ -65,16 +67,14 @@ class TrafficBot:
             is_ci = os.getenv("CI") == "true"
             headless_mode = is_ci
 
-            # Default geo settings
             geo_info = {
                 "country": "US",
                 "timezone": "America/New_York",
                 "locale": "en-US",
             }
 
-            # If using proxy, detect IP location first to set correct timezone/locale
             if use_proxy and proxy_config:
-                self.logger.debug("Detecting proxy IP location...")
+                self.logger.debug("Detecting proxy IP location...", self.thread_id)
                 temp_browser = await p.chromium.launch(headless=True, args=args)
                 temp_proxy_config = {"server": proxy_config["server"]}
                 if proxy_config.get("username"):
@@ -91,14 +91,15 @@ class TrafficBot:
                     await temp_browser.close()
 
             self.logger.debug(
-                f"Using timezone: {geo_info.get('timezone', 'America/New_York')}, locale: {geo_info.get('locale', 'en-US')}"
+                f"Using timezone: {geo_info.get('timezone', 'America/New_York')}, locale: {geo_info.get('locale', 'en-US')}",
+                self.thread_id,
             )
 
             launch_kwargs = {
                 "headless": headless_mode,
                 "args": args,
                 "user_agent": user_agent,
-                "viewport": {"width": 1440, "height": 900},  # Standard Mac resolution
+                "viewport": {"width": 1440, "height": 900},
                 "locale": geo_info.get("locale", "en-US"),
                 "timezone_id": geo_info.get("timezone", "America/New_York"),
             }
@@ -115,23 +116,18 @@ class TrafficBot:
 
                 launch_kwargs["proxy"] = proxy_kwargs
 
-            # Create a temporary directory for the user profile
             user_data_dir = tempfile.mkdtemp(prefix="chrome_profile_")
-            self.logger.debug(f"Created temporary profile at: {user_data_dir}")
+            self.logger.debug(f"Created temporary profile at: {user_data_dir}", self.thread_id)
 
             try:
-                # Use persistent_context to simulate real user profile
                 context = await p.chromium.launch_persistent_context(user_data_dir, **launch_kwargs)
 
                 page = context.pages[0] if context.pages else await context.new_page()
 
-                # Set extra headers manually since persistent context constructor doesn't take extra_http_headers easily in all versions
                 await page.set_extra_http_headers({"Referer": referer, "DNT": "0"})
 
-                # CRITICAL: Disable Geolocation API to prevent location leakage
                 await page.add_init_script(
                     """
-                    // Override geolocation API
                     if (navigator.geolocation) {
                         navigator.geolocation.getCurrentPosition = function(success, error) {
                             if (error) error({ code: 1, message: "User denied Geolocation" });
@@ -142,7 +138,6 @@ class TrafficBot:
                         };
                     }
 
-                    // Disable WebRTC to prevent IP leakage
                     const noop = () => {};
                     if (window.RTCPeerConnection) {
                         window.RTCPeerConnection = undefined;
@@ -156,28 +151,26 @@ class TrafficBot:
                 """
                 )
 
-                # Setup Diagnostic Logging (only if verbose mode is enabled)
                 if self.config.verbose:
                     actions.setup_network_logging(page)
 
                 try:
-                    self.logger.navigation(self.config.target_url)
+                    self.logger.navigation(self.config.target_url, self.thread_id)
                     await page.goto(
                         self.config.target_url,
                         timeout=120000,
                         wait_until="domcontentloaded",
                     )
 
-                    self.logger.debug("Waiting for network idle...")
+                    self.logger.debug("Waiting for network idle...", self.thread_id)
                     try:
                         await page.wait_for_load_state("networkidle", timeout=60000)
                     except PlaywrightTimeoutError:
-                        self.logger.debug("Network idle wait timed out.")
+                        self.logger.debug("Network idle wait timed out.", self.thread_id)
 
-                    # Wait for analytics initialization
                     await asyncio.sleep(random.uniform(5, 8))
 
-                    self.logger.page_loaded()
+                    self.logger.page_loaded(self.thread_id)
 
                     await actions.random_sleep(2, 5)
                     await actions.random_mouse_move(page)
@@ -192,7 +185,7 @@ class TrafficBot:
                         )
 
                         self.logger.form_submission(
-                            identity_to_use.get("full_name", "Unknown"), os.getpid()
+                            identity_to_use.get("full_name", "Unknown"), self.thread_id
                         )
 
                         form_completed = await actions.fill_form(
@@ -205,39 +198,38 @@ class TrafficBot:
                                 await submit_btn.hover()
                                 await asyncio.sleep(1.0)
                                 await submit_btn.click()
-                                self.logger.success(f"Thread {os.getpid()}: Form submitted.")
+                                self.logger.success("Form submitted.", self.thread_id)
 
-                                # Capture screenshot
-                                await asyncio.sleep(15)  # Long wait for processing
-                                screenshot_path = f"success_screenshot_{os.getpid()}.png"
+                                await asyncio.sleep(15)
+                                screenshot_path = f"success_screenshot_{self.thread_id}.png"
                                 await page.screenshot(path=screenshot_path)
-                                self.logger.screenshot(screenshot_path)
+                                self.logger.screenshot(screenshot_path, self.thread_id)
                             else:
                                 self.logger.warning(
-                                    f"Submit button not found with selector: {self.config.submit_button}"
+                                    f"Submit button not found with selector: {self.config.submit_button}",
+                                    self.thread_id,
                                 )
                         else:
                             self.logger.warning(
-                                "Form not submitted. Check completion status or submit button config."
+                                "Form not submitted. Check completion status or submit button config.",
+                                self.thread_id,
                             )
                     else:
-                        self.logger.bounce(os.getpid())
+                        self.logger.bounce(self.thread_id)
 
-                    self.logger.debug("Final dwell time...")
+                    self.logger.debug("Final dwell time...", self.thread_id)
                     await actions.random_sleep(8, 12)
 
                 except Exception as e:
-                    self.logger.error(f"Error in thread {os.getpid()}: {e}")
-                    error_path = f"error_screenshot_{os.getpid()}.png"
+                    self.logger.error(f"Error: {e}", self.thread_id)
+                    error_path = f"error_screenshot_{self.thread_id}.png"
                     await page.screenshot(path=error_path)
-                    self.logger.screenshot(error_path)
+                    self.logger.screenshot(error_path, self.thread_id)
                 finally:
                     await context.close()
-                    # browser object is not available in persistent context mode as context IS the browser
             finally:
-                # Clean up the temporary directory
                 try:
                     shutil.rmtree(user_data_dir)
-                    self.logger.debug(f"Removed temporary profile: {user_data_dir}")
+                    self.logger.debug(f"Removed temporary profile: {user_data_dir}", self.thread_id)
                 except Exception as e:
-                    self.logger.debug(f"Failed to remove temporary profile: {e}")
+                    self.logger.debug(f"Failed to remove temporary profile: {e}", self.thread_id)

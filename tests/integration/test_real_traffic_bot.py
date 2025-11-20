@@ -20,7 +20,6 @@ from src.fake_analytics.config import Config
 from src.fake_analytics.core import TrafficBot
 from src.fake_analytics.data import generate_identity
 
-# Load .env file for configuration
 load_dotenv()
 
 

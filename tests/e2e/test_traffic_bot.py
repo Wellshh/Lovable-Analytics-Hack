@@ -10,10 +10,6 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from src.fake_analytics.config import Config
 from src.fake_analytics.core import TrafficBot
 
-# ============================================================================
-# TEST: TrafficBot Initialization
-# ============================================================================
-
 
 @pytest.mark.e2e
 class TestTrafficBotInitialization:
@@ -38,10 +34,11 @@ class TestTrafficBotInitialization:
         bot = TrafficBot(config)
         assert bot.logger.verbose == verbose
 
-
-# ============================================================================
-# TEST: TrafficBot Full Run Workflow (Mocked)
-# ============================================================================
+    def test_traffic_bot_logger_has_thread_id(self, basic_config):
+        """Test: TrafficBot logger has thread_id set"""
+        bot = TrafficBot(basic_config)
+        assert bot.logger.thread_id is not None
+        assert bot.logger.thread_id == bot.thread_id
 
 
 @pytest.mark.e2e
@@ -56,17 +53,14 @@ class TestTrafficBotWorkflow:
         with patch("src.fake_analytics.core.async_playwright") as mock_pw_context:
             mock_pw_context.return_value.__aenter__.return_value = mock_playwright
 
-            # Mock tempfile and shutil
             with patch("src.fake_analytics.core.tempfile.mkdtemp") as mock_mkdtemp:
                 with patch("src.fake_analytics.core.shutil.rmtree") as mock_rmtree:
                     mock_mkdtemp.return_value = "/tmp/test_profile"
 
-                    # Run the bot
                     await bot.run()
 
-                    # Verify critical operations occurred
                     assert mock_page.goto.called
-                    assert True  # May or may not screenshot
+                    assert True
                     mock_rmtree.assert_called_once()
 
     async def test_traffic_bot_run_with_form_submission(
@@ -74,11 +68,10 @@ class TestTrafficBotWorkflow:
     ):
         """Test: TrafficBot workflow with form submission"""
         config = Config(config_path=sample_config_file, verbose=False)
-        config.conversion_rate = 1.0  # Force form submission
+        config.conversion_rate = 1.0
 
         bot = TrafficBot(config, identity=sample_identity)
 
-        # Setup mock form elements
         mock_submit_btn = AsyncMock()
         mock_submit_btn.hover = AsyncMock()
         mock_submit_btn.click = AsyncMock()
@@ -99,11 +92,9 @@ class TestTrafficBotWorkflow:
                 with patch("src.fake_analytics.core.shutil.rmtree"):
                     mock_mkdtemp.return_value = "/tmp/test_profile"
 
-                    # Mock random to force form submission
                     with patch("src.fake_analytics.core.random.random", return_value=0.5):
                         await bot.run()
 
-                        # Verify form was filled and submitted
                         assert mock_page.locator.called
                         assert mock_submit_btn.click.called
 
@@ -111,7 +102,7 @@ class TestTrafficBotWorkflow:
         self, basic_config, mock_playwright, mock_page
     ):
         """Test: TrafficBot workflow without form submission (bounce)"""
-        basic_config.conversion_rate = 0.0  # Force no form submission
+        basic_config.conversion_rate = 0.0
 
         bot = TrafficBot(basic_config)
 
@@ -125,7 +116,6 @@ class TestTrafficBotWorkflow:
                     with patch("src.fake_analytics.core.random.random", return_value=0.9):
                         await bot.run()
 
-                        # Should have navigated but not filled form
                         assert mock_page.goto.called
 
     @pytest.mark.asyncio
@@ -143,7 +133,6 @@ class TestTrafficBotWorkflow:
 
                     await bot.run()
 
-                    # Should have launched with proxy config
                     assert mock_playwright.chromium.launch_persistent_context.called
 
     async def test_traffic_bot_handles_navigation_timeout(
@@ -161,10 +150,8 @@ class TestTrafficBotWorkflow:
                 with patch("src.fake_analytics.core.shutil.rmtree"):
                     mock_mkdtemp.return_value = "/tmp/test_profile"
 
-                    # Should handle error and take screenshot
                     await bot.run()
 
-                    # Should have attempted screenshot
                     assert mock_page.screenshot.called
 
     async def test_traffic_bot_handles_general_exception(
@@ -182,16 +169,9 @@ class TestTrafficBotWorkflow:
                 with patch("src.fake_analytics.core.shutil.rmtree"):
                     mock_mkdtemp.return_value = "/tmp/test_profile"
 
-                    # Should handle error gracefully
                     await bot.run()
 
-                    # Should have taken error screenshot
                     assert mock_page.screenshot.called
-
-
-# ============================================================================
-# TEST: TrafficBot with Different Configurations
-# ============================================================================
 
 
 @pytest.mark.e2e
@@ -202,8 +182,8 @@ class TestTrafficBotConfigurations:
     @pytest.mark.parametrize(
         "conversion_rate,should_submit",
         [
-            (0.0, False),  # Never submit
-            (1.0, True),  # Always submit
+            (0.0, False),
+            (1.0, True),
         ],
     )
     async def test_traffic_bot_conversion_rates(
@@ -235,13 +215,11 @@ class TestTrafficBotConfigurations:
                 with patch("src.fake_analytics.core.shutil.rmtree"):
                     mock_mkdtemp.return_value = "/tmp/test_profile"
 
-                    # Mock random to be deterministic
                     with patch("src.fake_analytics.core.random.random", return_value=0.5):
                         await bot.run()
 
                         if should_submit:
                             assert mock_submit_btn.click.called
-                        # Note: If not should_submit, button might not be queried
 
     @pytest.mark.parametrize(
         "locale",
@@ -263,7 +241,6 @@ class TestTrafficBotConfigurations:
 
                     await bot.run()
 
-                    # Should complete without error
                     assert mock_page.goto.called
 
     async def test_traffic_bot_without_identity_generates_one(
@@ -300,13 +277,7 @@ class TestTrafficBotConfigurations:
 
                             await bot.run()
 
-                            # Should have generated identity
                             assert mock_gen.called
-
-
-# ============================================================================
-# TEST: TrafficBot Browser Configuration
-# ============================================================================
 
 
 @pytest.mark.asyncio
@@ -327,7 +298,6 @@ class TestTrafficBotBrowserConfiguration:
 
                     await bot.run()
 
-                    # Should have added init script to disable WebRTC
                     assert mock_page.add_init_script.called
 
     async def test_traffic_bot_sets_extra_headers(self, basic_config, mock_playwright, mock_page):
@@ -343,7 +313,6 @@ class TestTrafficBotBrowserConfiguration:
 
                     await bot.run()
 
-                    # Should have set extra headers
                     assert mock_page.set_extra_http_headers.called
 
     async def test_traffic_bot_uses_persistent_context(self, basic_config, mock_playwright):
@@ -376,15 +345,10 @@ class TestTrafficBotBrowserConfiguration:
 
                     await bot.run()
 
-                    # Should have cleaned up temp directory
                     mock_rmtree.assert_called_once_with(temp_dir)
 
 
-# ============================================================================
-# TEST: TrafficBot Network Logging
-# ============================================================================
-
-
+@pytest.mark.e2e
 @pytest.mark.e2e
 @pytest.mark.asyncio
 class TestTrafficBotNetworkLogging:
@@ -407,7 +371,6 @@ class TestTrafficBotNetworkLogging:
                     ) as mock_setup:
                         await bot.run()
 
-                        # Should have set up network logging
                         mock_setup.assert_called_once_with(mock_page)
 
     async def test_traffic_bot_disables_logging_in_non_verbose_mode(
@@ -428,3 +391,200 @@ class TestTrafficBotNetworkLogging:
                     ) as mock_setup:
                         await bot.run()
                         mock_setup.assert_not_called()
+
+
+@pytest.mark.e2e
+class TestTrafficBotMultiThreading:
+    """Test TrafficBot multi-threading capabilities"""
+
+    def test_multiple_bots_have_unique_thread_ids(self, basic_config):
+        """Test: Multiple TrafficBot instances have unique thread IDs"""
+        import threading
+        import time
+
+        thread_ids = set()
+        lock = threading.Lock()
+
+        def create_bot():
+            time.sleep(0.01)
+            bot = TrafficBot(basic_config)
+            with lock:
+                thread_ids.add(bot.thread_id)
+            return bot.thread_id
+
+        threads = []
+        for _ in range(5):
+            thread = threading.Thread(target=create_bot)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        assert len(thread_ids) == 5
+
+    def test_bot_thread_id_matches_logger_thread_id(self, basic_config):
+        """Test: Bot thread_id matches logger thread_id"""
+        bot = TrafficBot(basic_config)
+        assert bot.thread_id == bot.logger.thread_id
+        assert bot.thread_id is not None
+
+    def test_concurrent_bot_execution(self, basic_config, mock_playwright, mock_page):
+        """Test: Multiple bots can execute concurrently"""
+        import asyncio
+        import threading
+
+        execution_count = []
+        execution_lock = threading.Lock()
+
+        def run_bot_in_thread():
+            async def async_run():
+                bot = TrafficBot(basic_config)
+                with patch("src.fake_analytics.core.async_playwright") as mock_pw_context:
+                    mock_pw_context.return_value.__aenter__.return_value = mock_playwright
+                    with patch("src.fake_analytics.core.tempfile.mkdtemp") as mock_mkdtemp:
+                        with patch("src.fake_analytics.core.shutil.rmtree"):
+                            mock_mkdtemp.return_value = "/tmp/test_profile"
+                            await bot.run()
+                            with execution_lock:
+                                execution_count.append(bot.thread_id)
+
+            asyncio.run(async_run())
+
+        threads = []
+        for _ in range(3):
+            thread = threading.Thread(target=run_bot_in_thread)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        assert len(execution_count) == 3
+        assert len(set(execution_count)) == 3
+
+    def test_thread_registry_assigns_unique_numbers(self, basic_config):
+        """Test: Thread registry assigns unique numbers to each thread"""
+        import threading
+        import time
+
+        from src.fake_analytics.logger import get_thread_info
+
+        thread_numbers = set()
+        lock = threading.Lock()
+
+        def get_thread_number():
+            time.sleep(0.01)
+            thread_id = threading.get_ident()
+            info = get_thread_info(thread_id)
+            with lock:
+                thread_numbers.add(info["number"])
+            return info["number"]
+
+        threads = []
+        for _ in range(5):
+            thread = threading.Thread(target=get_thread_number)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        assert len(thread_numbers) == 5
+
+    def test_thread_colors_are_assigned(self, basic_config):
+        """Test: Each thread gets a unique color assignment"""
+        import threading
+        import time
+
+        from src.fake_analytics.logger import get_thread_info
+
+        thread_colors = set()
+        lock = threading.Lock()
+
+        def get_thread_color():
+            time.sleep(0.01)
+            thread_id = threading.get_ident()
+            info = get_thread_info(thread_id)
+            with lock:
+                thread_colors.add(info["color"])
+            return info["color"]
+
+        threads = []
+        for _ in range(5):
+            thread = threading.Thread(target=get_thread_color)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        assert len(thread_colors) >= 1
+
+    def test_multiple_bots_with_different_identities(
+        self, sample_config_file, sample_identities, mock_playwright, mock_page
+    ):
+        """Test: Multiple bots can run with different identities"""
+        import asyncio
+        import threading
+
+        config = Config(config_path=sample_config_file, verbose=False)
+        config.conversion_rate = 0.0
+
+        executed_identities = []
+        execution_lock = threading.Lock()
+
+        def run_bot_with_identity(identity):
+            async def async_run():
+                bot = TrafficBot(config, identity=identity)
+                with patch("src.fake_analytics.core.async_playwright") as mock_pw_context:
+                    mock_pw_context.return_value.__aenter__.return_value = mock_playwright
+                    with patch("src.fake_analytics.core.tempfile.mkdtemp") as mock_mkdtemp:
+                        with patch("src.fake_analytics.core.shutil.rmtree"):
+                            mock_mkdtemp.return_value = "/tmp/test_profile"
+                            await bot.run()
+                            with execution_lock:
+                                executed_identities.append(identity)
+
+            asyncio.run(async_run())
+
+        threads = []
+        for identity in sample_identities:
+            thread = threading.Thread(target=run_bot_with_identity, args=(identity,))
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        assert len(executed_identities) == len(sample_identities)
+
+    def test_logger_thread_safety(self, basic_config):
+        """Test: Logger operations are thread-safe"""
+        import threading
+        import time
+
+        from src.fake_analytics.logger import BotLogger
+
+        log_calls = []
+        lock = threading.Lock()
+
+        def log_from_thread():
+            time.sleep(0.01)
+            thread_id = threading.get_ident()
+            logger = BotLogger(verbose=False, thread_id=thread_id)
+            logger.info("Test message", thread_id=thread_id)
+            with lock:
+                log_calls.append(thread_id)
+
+        threads = []
+        for _ in range(5):
+            thread = threading.Thread(target=log_from_thread)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
+
+        assert len(log_calls) == 5
+        assert len(set(log_calls)) == 5

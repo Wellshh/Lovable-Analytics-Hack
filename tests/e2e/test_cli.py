@@ -9,10 +9,6 @@ from click.testing import CliRunner
 
 from src.fake_analytics.cli import cli, run_bot_instance
 
-# ============================================================================
-# TEST: CLI Run Command
-# ============================================================================
-
 
 @pytest.mark.e2e
 class TestCLIRunCommand:
@@ -22,7 +18,6 @@ class TestCLIRunCommand:
         """Test: CLI run command with URL parameter"""
         runner = CliRunner()
 
-        # Mock environment and bot execution
         monkeypatch.delenv("PROXY_USER", raising=False)
         monkeypatch.delenv("PROXY_PASS", raising=False)
 
@@ -35,7 +30,6 @@ class TestCLIRunCommand:
 
             result = runner.invoke(cli, ["run", "--url", "https://test.com", "--threads", "1"])
 
-            # Should execute without crashing
             assert result.exit_code == 0
 
     def test_cli_run_with_config_file(self, sample_config_file, monkeypatch):
@@ -129,15 +123,10 @@ class TestCLIRunCommand:
 
         result = runner.invoke(cli, ["run", "--config", "/nonexistent/config.json"])
 
-        # Should exit with error
         assert result.exit_code != 0
 
 
-# ============================================================================
-# TEST: CLI Discover Command
-# ============================================================================
-
-
+@pytest.mark.e2e
 @pytest.mark.e2e
 class TestCLIDiscoverCommand:
     """Test CLI discover command"""
@@ -148,7 +137,6 @@ class TestCLIDiscoverCommand:
 
         result = runner.invoke(cli, ["discover"])
 
-        # Should fail without URL
         assert result.exit_code != 0
 
     def test_cli_discover_with_url(self):
@@ -158,7 +146,6 @@ class TestCLIDiscoverCommand:
         with patch("src.fake_analytics.cli.asyncio.run") as mock_run:
             result = runner.invoke(cli, ["discover", "--url", "https://example.com"])
 
-            # Should call async discover function
             assert mock_run.called
             assert result.exit_code == 0
 
@@ -172,15 +159,10 @@ class TestCLIDiscoverCommand:
 
                 runner.invoke(cli, ["discover", "--url", "https://test.com"])
 
-                # Should have been passed to asyncio.run
                 assert mock_run.called
 
 
-# ============================================================================
-# TEST: CLI Version and Help
-# ============================================================================
-
-
+@pytest.mark.e2e
 @pytest.mark.e2e
 class TestCLIGeneralCommands:
     """Test general CLI commands"""
@@ -223,11 +205,6 @@ class TestCLIGeneralCommands:
         assert "form fields" in result.output.lower()
 
 
-# ============================================================================
-# TEST: run_bot_instance Function
-# ============================================================================
-
-
 @pytest.mark.e2e
 class TestRunBotInstance:
     """Test run_bot_instance wrapper function"""
@@ -237,7 +214,6 @@ class TestRunBotInstance:
         with patch("src.fake_analytics.cli.asyncio.run") as mock_run:
             run_bot_instance(basic_config, None)
 
-            # Should have called asyncio.run
             assert mock_run.called
 
     def test_run_bot_instance_with_identity(self, basic_config, sample_identity):
@@ -252,19 +228,13 @@ class TestRunBotInstance:
         with patch("src.fake_analytics.cli.asyncio.run") as mock_async_run:
             mock_async_run.return_value = None
 
-            # Run the function
             run_bot_instance(basic_config, None)
 
-            # Should have called asyncio.run with a coroutine
             assert mock_async_run.called
             assert mock_async_run.call_count == 1
 
 
-# ============================================================================
-# TEST: CLI Integration Scenarios
-# ============================================================================
-
-
+@pytest.mark.e2e
 @pytest.mark.e2e
 class TestCLIIntegrationScenarios:
     """Test CLI integration scenarios"""
@@ -299,7 +269,6 @@ class TestCLIIntegrationScenarios:
                     ],
                 )
 
-                # URL should have been set on config
                 assert mock_config_instance.target_url == "https://override.com"
 
     def test_cli_data_file_overrides_thread_count(
@@ -327,12 +296,10 @@ class TestCLIIntegrationScenarios:
                     "--data-file",
                     sample_csv_file,
                     "--threads",
-                    "10",  # Should be overridden by CSV row count
+                    "10",
                 ],
             )
 
-            # Thread count should match CSV rows (3), not --threads value (10)
-            # Check that submit was called correct number of times
             assert mock_executor.return_value.submit.call_count == len(sample_csv_data)
 
     def test_cli_verbose_flag_propagates_to_config(self, monkeypatch):
@@ -352,7 +319,6 @@ class TestCLIIntegrationScenarios:
             with patch("src.fake_analytics.cli.Config") as mock_config_class:
                 runner.invoke(cli, ["run", "--url", "https://test.com", "--verbose"])
 
-                # Config should have been created with verbose=True
                 mock_config_class.assert_called_once()
                 call_kwargs = mock_config_class.call_args[1]
                 assert call_kwargs.get("verbose") is True

@@ -103,10 +103,8 @@ async def check_proxy_ip(page: Page, verbose: bool = False) -> dict:
                     print(f"Detected Location: {country} ({country_code})")
                     print(f"Timezone: {timezone}")
 
-                # Use geo_utils for locale mapping and timezone fallback
                 from .geo_utils import get_locale_for_country, get_timezone_for_country
 
-                # Use API timezone if available, otherwise fallback to country mapping
                 final_timezone = timezone if timezone else get_timezone_for_country(country_code)
                 locale = get_locale_for_country(country_code)
 
@@ -118,7 +116,6 @@ async def check_proxy_ip(page: Page, verbose: bool = False) -> dict:
                     "ip": ip,
                 }
         else:
-            # Fallback to simple IP check
             await page.goto("https://api.ipify.org?format=json", timeout=60000)
             content = await page.content()
             if verbose:
@@ -146,7 +143,6 @@ def setup_network_logging(page: Page):
         ]:
             status = response.status
             status_text = "OK" if 200 <= status < 300 else "FAILED"
-            # Only log failures or API calls to reduce noise
             if status >= 400 or "api" in response.url or "genma" in response.url:
                 print(f" << [RES] {status} {status_text} {response.url[:100]}")
 
@@ -157,7 +153,6 @@ def setup_network_logging(page: Page):
     def on_websocket(ws: WebSocket):
         print(f" >> [WS] WebSocket opened: {ws.url}")
 
-    # Listen to console errors too
     page.on(
         "console",
         lambda msg: (print(f"BROWSER CONSOLE: {msg.text}") if msg.type == "error" else None),

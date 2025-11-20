@@ -9,10 +9,6 @@ import pytest
 
 from src.fake_analytics.config import Config
 
-# ============================================================================
-# TEST: Config Initialization
-# ============================================================================
-
 
 @pytest.mark.unit
 class TestConfigInitialization:
@@ -63,9 +59,7 @@ class TestConfigInitialization:
         assert config.use_proxy is False
 
 
-# ============================================================================
 # TEST: Config File Loading
-# ============================================================================
 
 
 @pytest.mark.unit
@@ -126,9 +120,7 @@ class TestConfigFileLoading:
         assert config.locale == "en_US"  # Default
 
 
-# ============================================================================
 # TEST: Config Validation
-# ============================================================================
 
 
 @pytest.mark.unit
@@ -150,9 +142,7 @@ class TestConfigValidation:
         assert config.conversion_rate == valid_rate
 
 
-# ============================================================================
 # TEST: Proxy Configuration
-# ============================================================================
 
 
 @pytest.mark.unit
@@ -228,9 +218,7 @@ class TestProxyConfiguration:
         assert proxy_config["username"] == expected_suffix
 
 
-# ============================================================================
 # TEST: Config Properties
-# ============================================================================
 
 
 @pytest.mark.unit

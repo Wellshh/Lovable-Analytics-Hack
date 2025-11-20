@@ -4,7 +4,6 @@ from typing import Optional
 
 from faker import Faker
 
-# Default referers with weights (will be overridden by config if provided)
 DEFAULT_REFERERS = {
     "https://www.facebook.com/": 4,
     "https://www.reddit.com/": 1,
@@ -37,13 +36,11 @@ class IdentityGenerator:
         """
         full_name = self.faker.name()
 
-        # Generate professional email based on name
-        # Sometimes use company domain, sometimes use public email
-        if random.random() < 0.3:  # 30% chance of company email
+        if random.random() < 0.3:
             company = self.faker.company()
             company_domain = self._company_to_domain(company)
             email = self._name_to_email(full_name, company_domain)
-        else:  # Public email domain
+        else:
             public_domains = [
                 "gmail.com",
                 "yahoo.com",
@@ -64,25 +61,21 @@ class IdentityGenerator:
 
     def _name_to_email(self, name: str, domain: str) -> str:
         """Convert a name to an email address"""
-        # Remove titles and suffixes
         name_parts = name.lower().replace(".", "").replace(",", "").split()
-        # Use first and last name
         if len(name_parts) >= 2:
             first = name_parts[0]
             last = name_parts[-1]
 
-            # Various email patterns
             patterns = [
                 f"{first}.{last}",
                 f"{first}{last}",
                 f"{first}_{last}",
-                f"{first[0]}{last}",  # First initial + last name
-                f"{first}{last[0]}",  # First name + last initial
+                f"{first[0]}{last}",
+                f"{first}{last[0]}",
             ]
 
             email_local = random.choice(patterns)
 
-            # Sometimes add numbers
             if random.random() < 0.3:
                 email_local += str(random.randint(1, 999))
 
@@ -92,7 +85,6 @@ class IdentityGenerator:
 
     def _company_to_domain(self, company: str) -> str:
         """Convert company name to domain"""
-        # Remove common suffixes and special characters
         domain = company.lower()
         for suffix in [
             " inc",
@@ -106,16 +98,13 @@ class IdentityGenerator:
         ]:
             domain = domain.replace(suffix, "")
 
-        # Remove special characters
         domain = "".join(c for c in domain if c.isalnum() or c == " ")
         domain = domain.replace(" ", "")
 
-        # Add TLD
         tlds = ["com", "net", "org", "io", "co"]
         return f"{domain}.{random.choice(tlds)}"
 
 
-# Global instance
 _identity_generator = None
 
 
@@ -154,15 +143,13 @@ def get_referer(referers_config: Optional[dict] = None) -> str:
     if not referers_config:
         referers_config = DEFAULT_REFERERS
 
-    # Extract URLs and weights
     urls = list(referers_config.keys())
     weights = list(referers_config.values())
 
-    # Use random.choices with weights
     return random.choices(urls, weights=weights, k=1)[0]
 
 
-REFERERS = list(DEFAULT_REFERERS.keys())  # For backward compatibility
+REFERERS = list(DEFAULT_REFERERS.keys())
 
 
 def load_user_data(file_path: str) -> list[dict]:

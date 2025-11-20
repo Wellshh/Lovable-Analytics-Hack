@@ -14,7 +14,6 @@ except ImportError:
     pytz = None
 
 LOCALE_MAP = {
-    # English-speaking countries
     "US": "en-US",
     "GB": "en-GB",
     "CA": "en-CA",
@@ -27,12 +26,11 @@ LOCALE_MAP = {
     "IN": "en-IN",
     "PH": "en-PH",
     "HK": "en-HK",
-    # European countries
     "DE": "de-DE",
     "AT": "de-AT",
-    "CH": "de-CH",  # Note: Switzerland has multiple locales (de-CH, fr-CH)
+    "CH": "de-CH",
     "FR": "fr-FR",
-    "BE": "fr-BE",  # Note: Belgium has multiple locales (fr-BE, nl-BE)
+    "BE": "fr-BE",
     "ES": "es-ES",
     "MX": "es-MX",
     "AR": "es-AR",
@@ -52,10 +50,8 @@ LOCALE_MAP = {
     "CZ": "cs-CZ",
     "HU": "hu-HU",
     "RO": "ro-RO",
-    # Asian countries
     "CN": "zh-CN",
     "TW": "zh-TW",
-    # Note: HK already defined above (en-HK), Hong Kong has multiple locales (en-HK, zh-HK)
     "JP": "ja-JP",
     "KR": "ko-KR",
     "TH": "th-TH",
@@ -64,7 +60,6 @@ LOCALE_MAP = {
     "MM": "my-MM",
     "KH": "km-KH",
     "LA": "lo-LA",
-    # Middle East
     "SA": "ar-SA",
     "AE": "ar-AE",
     "IL": "he-IL",
@@ -84,7 +79,6 @@ def get_timezone_for_country(country_code: str) -> str | None:
         str: Primary timezone (e.g., 'America/New_York') or None if not found
     """
     if not PYTZ_AVAILABLE:
-        # Fallback mapping for common countries if pytz is not available
         fallback_timezones = {
             "US": "America/New_York",
             "GB": "Europe/London",
@@ -104,7 +98,6 @@ def get_timezone_for_country(country_code: str) -> str | None:
     try:
         timezones = pytz.country_timezones.get(country_code.upper())
         if timezones:
-            # Return the first (usually primary) timezone
             return timezones[0]
     except (KeyError, AttributeError):
         pass
@@ -161,7 +154,6 @@ def get_country_info(country_code: str) -> dict:
     locale = get_locale_for_country(country_code)
     all_timezones = get_all_timezones_for_country(country_code)
 
-    # Get country name if pytz is available
     country_name = None
     if PYTZ_AVAILABLE:
         with contextlib.suppress(KeyError, AttributeError):

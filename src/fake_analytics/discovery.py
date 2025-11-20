@@ -20,18 +20,15 @@ async def discover_form_fields(url: str):
             click.echo("Navigating to the page...")
             await page.goto(url, timeout=60000, wait_until="domcontentloaded")
 
-            # Wait for network to be idle to ensure all JavaScript has loaded
             try:
                 await page.wait_for_load_state("networkidle", timeout=30000)
             except Exception:
                 click.echo("Waiting for network idle timed out, continuing anyway...")
 
-            # Additional wait to ensure dynamic content is loaded
             await asyncio.sleep(2)
 
             click.echo("Searching for input, textarea, and select elements...")
 
-            # Select all relevant form elements
             elements = await page.query_selector_all("input, textarea, select")
 
             if not elements:
@@ -45,7 +42,6 @@ async def discover_form_fields(url: str):
 
             field_details = []
             for _idx, element in enumerate(elements, 1):
-                # Use evaluate to get all attributes at once, which is more reliable
                 attrs = await element.evaluate(
                     """el => ({
                         tag: el.tagName.toLowerCase(),
@@ -70,10 +66,8 @@ async def discover_form_fields(url: str):
                 }
                 field_details.append(details)
 
-            # Print a formatted table with more details
             print_field_table(field_details)
 
-            # Show suggested selectors
             console.print("\n[bold cyan]💡 Suggested CSS Selectors:[/bold cyan]")
             for idx, item in enumerate(field_details, 1):
                 selectors = []
@@ -97,7 +91,6 @@ async def discover_form_fields(url: str):
                 "\n[cyan]Use the selectors above to create your JSON configuration file for the 'run' command.[/cyan]"
             )
 
-            # Ask user if they want to generate a config file
             if click.confirm(
                 "\n🤔 Would you like to generate a JSON configuration file?",
                 default=True,
@@ -121,7 +114,6 @@ async def generate_config_file(url: str, page, field_details: list):
         click.secho("📋 Configuration File Generation", fg="cyan")
         click.echo("=" * 80)
 
-        # Try to find submit button
         submit_selectors = [
             "button[type='submit']",
             "input[type='submit']",
@@ -152,7 +144,6 @@ async def generate_config_file(url: str, page, field_details: list):
             ):
                 submit_button = click.prompt("Enter submit button selector", type=str)
 
-        # Build form_fields mapping with user interaction
         form_fields = {}
         field_mapping = {
             "full_name": ["name", "fullname", "full_name", "fullName"],
@@ -165,12 +156,10 @@ async def generate_config_file(url: str, page, field_details: list):
         click.echo("\n📝 Mapping form fields:")
         click.echo("-" * 80)
 
-        # Map discovered fields to standard field names
         for idx, field in enumerate(field_details, 1):
             field_name_lower = field["name"].lower() if field["name"] != "N/A" else ""
             field_id_lower = field["id"].lower() if field["id"] != "N/A" else ""
 
-            # Generate possible selectors
             selectors = []
             if field["id"] != "N/A":
                 selectors.append(("ID", f"#{field['id']}"))
@@ -184,7 +173,6 @@ async def generate_config_file(url: str, page, field_details: list):
             if not selectors:
                 continue
 
-            # Try to auto-match to standard field names
             matched_standard_name = None
             for standard_name, possible_names in field_mapping.items():
                 if any(
@@ -193,7 +181,6 @@ async def generate_config_file(url: str, page, field_details: list):
                     matched_standard_name = standard_name
                     break
 
-            # Ask user if they want to include this field
             field_display = f"Field {idx} ({field['tag']}, type={field['type']})"
             if field["name"] != "N/A":
                 field_display += f" name='{field['name']}'"
@@ -206,8 +193,7 @@ async def generate_config_file(url: str, page, field_details: list):
                 if click.confirm(
                     f"  Include this field as '{matched_standard_name}'?", default=True
                 ):
-                    # Use the best selector (prefer ID, then name)
-                    best_selector = selectors[0][1]  # First selector is usually best
+                    best_selector = selectors[0][1]
                     form_fields[matched_standard_name] = best_selector
                     click.secho(
                         f"  ✅ Added: {matched_standard_name} = {best_selector}",
@@ -216,19 +202,16 @@ async def generate_config_file(url: str, page, field_details: list):
             else:
                 click.echo(f"\n{field_display}")
                 if click.confirm("  Include this field in the config?", default=True):
-                    # Let user choose field name
                     default_key = field["name"] if field["name"] != "N/A" else field["id"]
                     field_key = click.prompt(
                         "  Enter field name for config",
                         default=default_key,
                         type=str,
                     )
-                    # Use the best selector
                     best_selector = selectors[0][1]
                     form_fields[field_key] = best_selector
                     click.secho(f"  ✅ Added: {field_key} = {best_selector}", fg="green")
 
-        # Build config
         config = {
             "target_url": url,
             "conversion_rate": 0.3,
@@ -240,7 +223,6 @@ async def generate_config_file(url: str, page, field_details: list):
         if submit_button:
             config["submit_button"] = submit_button
 
-        # Ask for output file path
         click.echo("\n" + "=" * 80)
         default_filename = "config.json"
         output_path = click.prompt(
@@ -249,11 +231,9 @@ async def generate_config_file(url: str, page, field_details: list):
             type=click.Path(),
         )
 
-        # Ensure .json extension
         if not output_path.endswith(".json"):
             output_path += ".json"
 
-        # Check if file exists
         from pathlib import Path
 
         if Path(output_path).exists() and not click.confirm(
@@ -262,7 +242,6 @@ async def generate_config_file(url: str, page, field_details: list):
             click.secho("Configuration file generation cancelled.", fg="yellow")
             return
 
-        # Ask for conversion rate
         conversion_rate = click.prompt(
             "🎯 Enter conversion rate (0.0 to 1.0)",
             default=0.3,
@@ -277,7 +256,6 @@ async def generate_config_file(url: str, page, field_details: list):
 
         config["conversion_rate"] = conversion_rate
 
-        # Write config file
         with Path(output_path).open("w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
 

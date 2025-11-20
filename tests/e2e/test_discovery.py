@@ -11,10 +11,6 @@ from src.fake_analytics.discovery import (
     generate_config_file,
 )
 
-# ============================================================================
-# TEST: Form Field Discovery
-# ============================================================================
-
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
@@ -133,9 +129,7 @@ class TestDiscoverFormFields:
             await discover_form_fields(url)
 
 
-# ============================================================================
 # TEST: Config File Generation
-# ============================================================================
 
 
 @pytest.mark.e2e
@@ -243,9 +237,7 @@ class TestGenerateConfigFile:
                     assert config["conversion_rate"] == 0.3
 
 
-# ============================================================================
 # TEST: Discovery Integration
-# ============================================================================
 
 
 @pytest.mark.e2e

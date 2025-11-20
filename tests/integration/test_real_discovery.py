@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 
 from src.fake_analytics.discovery import discover_form_fields
 
-# Load .env file for configuration
 load_dotenv()
 
 

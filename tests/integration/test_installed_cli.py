@@ -48,9 +48,7 @@ class TestInstalledCLI:
             check=False,
         )
 
-        # Should succeed when package is installed
         assert result.returncode == 0
-        # Output should contain version info
         assert len(result.stdout) > 0 or len(result.stderr) > 0
 
     def test_cli_help_command_installed(self):
@@ -107,17 +105,15 @@ class TestInstalledCLI:
         if not self.is_package_installed():
             pytest.skip("Package not installed. Run: pip install -e . or poetry install")
 
-        # Use a simple test page
         result = subprocess.run(
             ["fake-analytics", "discover", "--url", "https://httpbin.org/forms/post"],
             capture_output=True,
             text=True,
             timeout=30,
             input="n\n",
-            check=False,  # Answer "no" to config generation prompt
+            check=False,
         )
 
-        # Should complete (might succeed or fail due to page structure, but shouldn't crash)
         assert result.returncode in [0, 1]
 
 
@@ -161,7 +157,6 @@ class TestCLIWithPoetry:
         if not self.is_poetry_available():
             pytest.skip("Poetry not available")
 
-        # Run a simple unit test to verify pytest works
         result = subprocess.run(
             [
                 "poetry",
@@ -190,7 +185,6 @@ class TestPackageStructure:
         try:
             from src.fake_analytics import actions, cli, config, core, data, discovery, logger
 
-            # All imports should succeed
             assert config is not None
             assert data is not None
             assert actions is not None

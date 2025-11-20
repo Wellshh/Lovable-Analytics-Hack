@@ -102,13 +102,7 @@ def mock_env_vars(monkeypatch):
 @pytest.fixture
 def basic_config():
     """Create a basic Config instance with minimal setup"""
-    # Mock environment to avoid loading real .env
     return Config(config_path=None, verbose=False)
-
-
-# ============================================================================
-# FIXTURES: Mocked Playwright Components
-# ============================================================================
 
 
 @pytest.fixture
@@ -130,7 +124,7 @@ def mock_page():
     page.content = AsyncMock(return_value="<html><body>Test</body></html>")
     page.inner_text = AsyncMock(return_value="Test content")
     page.evaluate = AsyncMock()
-    page.on = Mock()  # Event listener
+    page.on = Mock()
     return page
 
 
@@ -172,6 +166,7 @@ def mock_logger():
     """Create a mock logger to capture log calls"""
     logger = Mock(spec=BotLogger)
     logger.verbose = False
+    logger.thread_id = None
     logger.info = Mock()
     logger.success = Mock()
     logger.warning = Mock()
@@ -194,9 +189,7 @@ def silent_logger():
     return BotLogger(verbose=False)
 
 
-# ============================================================================
 # FIXTURES: Identity Data
-# ============================================================================
 
 
 @pytest.fixture
@@ -235,11 +228,6 @@ def sample_identities():
     ]
 
 
-# ============================================================================
-# FIXTURES: Parametrize Helpers
-# ============================================================================
-
-
 @pytest.fixture(params=["en_US", "en_GB", "fr_FR", "de_DE", "ja_JP"])
 def locale_param(request):
     """Parametrized locale fixture for testing different locales"""
@@ -258,11 +246,6 @@ def verbose_param(request):
     return request.param
 
 
-# ============================================================================
-# FIXTURES: Form Fields
-# ============================================================================
-
-
 @pytest.fixture
 def sample_form_fields():
     """Provide sample form field mapping"""
@@ -278,7 +261,6 @@ def sample_form_fields():
 @pytest.fixture
 def mock_form_elements(mock_page):
     """Create mock form elements on a page"""
-    # Create mock locators for each form field
     mock_locator = AsyncMock()
     mock_locator.first = AsyncMock()
     mock_locator.first.wait_for = AsyncMock()
@@ -290,9 +272,7 @@ def mock_form_elements(mock_page):
     return mock_locator
 
 
-# ============================================================================
 # FIXTURES: Proxy Configuration
-# ============================================================================
 
 
 @pytest.fixture
@@ -313,11 +293,6 @@ def proxy_config_with_countries():
         "username": "user__cr.US,GB,CA",
         "password": "secure_password",
     }
-
-
-# ============================================================================
-# PYTEST HOOKS
-# ============================================================================
 
 
 def pytest_configure(config):
